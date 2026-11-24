@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CKD dysbiosis seesaw: live simulation</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#EEF1EE;--panel:#F9FAF8;--ink:#1F2A2E;--mute:#5E6B6A;--line:#CDD6D3;--lum:#E8EEEC;--cell:#F0C9A4;--cellS:#C99A72;--prot:#8A6A1F;--sacc:#3F8F4E;--pur:#8E6BB0;--lps:#D6453D;--tox:#B58A2A;--scfa:#1F8C8C;--acc:#B2452E;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121816;--panel:#1B2220;--ink:#E7EEEC;--mute:#95A5A2;--line:#2E3B38;--lum:#18211F;--cell:#8A6247;--cellS:#B08460;--prot:#D2A94E;--sacc:#6FCB7B;--pur:#B596D6;--lps:#FF6B5F;--tox:#E0B24A;--scfa:#4FD0CF;--acc:#FF8566}}
+:root[data-theme="dark"]{--bg:#121816;--panel:#1B2220;--ink:#E7EEEC;--mute:#95A5A2;--line:#2E3B38;--lum:#18211F;--cell:#8A6247;--cellS:#B08460;--prot:#D2A94E;--sacc:#6FCB7B;--pur:#B596D6;--lps:#FF6B5F;--tox:#E0B24A;--scfa:#4FD0CF;--acc:#FF8566}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Figtree',system-ui,sans-serif;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding:18px 14px 40px}
+h1{font-size:clamp(1.4rem,3.4vw,2rem);font-weight:800;margin:4px 0 2px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 14px;max-width:66ch}
+canvas{width:100%;height:auto;aspect-ratio:960/560;display:block;border-radius:14px;border:1px solid var(--line);background:var(--lum)}
+.read{margin:12px 0;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;min-height:3em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.box h2{font-size:1rem;margin:0 0 10px}
+.ctl{margin-bottom:12px}.ctl label{display:flex;justify-content:space-between;font-weight:600;font-size:.92rem}
+.ctl small{display:block;color:var(--mute);font-size:.8rem}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+button{font:inherit;font-weight:600;font-size:.88rem;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover,button.on{border-color:var(--acc)}button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:.9rem;font-weight:600;margin-top:4px}.chk small{display:block;color:var(--mute);font-weight:400}
+.g{margin-bottom:8px}.g .t{display:flex;justify-content:space-between;font-size:.86rem}
+.bar{height:8px;border-radius:5px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;width:0;border-radius:5px;transition:width .25s}
+.gh{font-weight:800;font-size:.82rem;color:var(--mute);margin:12px 0 6px}
+.ex .d{margin-bottom:13px;font-size:.9rem}.ex .d b{display:block}.ex .d em{font-style:normal;display:inline-block;margin-top:4px;padding:1px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:.8rem;font-weight:600}
+#log{margin:0;padding-left:18px;font-size:.88rem}#log li{margin-bottom:10px}#log small{display:block;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>CKD dysbiosis seesaw</h1>
+<p class="sub">Diet, transit, drugs and kidney clearance tip the gut flora between saccharolytic and proteolytic. Follow the consequences from toxins and barrier leak to inflammation and organ damage, including the loops that feed back on the kidney.</p>
+<canvas id="c" role="img" aria-label="Animated seesaw of proteolytic versus saccharolytic bacteria above the intestinal barrier, with downstream organ effects"></canvas>
+<div class="read" id="read" aria-live="polite"></div>
+<div class="grid">
+<div class="box">
+<h2>Drivers</h2>
+<div class="btns">
+<button data-p=".35,.85,.8,0,0">Healthy</button>
+<button data-p=".4,.6,.6,.2,.25">Early CKD</button>
+<button data-p=".5,.2,.4,.6,.5">Restricted CKD diet</button>
+<button data-p=".3,.9,.8,0,.5">Gut rescue</button>
+</div>
+<div class="btns"><button id="pause">Pause</button><button id="s1" class="on">1×</button><button id="s5">5×</button></div>
+<div class="ctl"><label for="prot">Protein and precursors <span id="v_prot"></span></label><input id="prot" type="range" min="0" max="100" value="35"><small>Phenylalanine, tyrosine, tryptophan, choline, lecithin</small></div>
+<div class="ctl"><label for="fiber">Fiber and carbohydrates <span id="v_fiber"></span></label><input id="fiber" type="range" min="0" max="100" value="85"><small>Fuel for saccharolytic bacteria</small></div>
+<div class="ctl"><label for="transit">Colonic transit <span id="v_transit"></span></label><input id="transit" type="range" min="0" max="100" value="80"><small>Slow transit gives proteolytic bacteria more time</small></div>
+<div class="ctl"><label for="meds">Medication <span id="v_meds"></span></label><input id="meds" type="range" min="0" max="100" value="0"><small>Antibiotics, phosphate binders, iron-containing compounds</small></div>
+<div class="ctl"><label for="ckd">Baseline kidney function lost <span id="v_ckd"></span></label><input id="ckd" type="range" min="0" max="100" value="0"><small>Reduced clearance of absorbed toxins</small></div>
+<label class="chk"><input type="checkbox" id="fb" checked><span>Feedback loops on<small>Toxins add selective pressure for proteolytic bacteria, and inflammation drives fibrosis that lowers kidney function further</small></span></label>
+</div>
+<div class="box"><h2>Readouts</h2><div id="gauges"></div></div>
+</div>
+<div class="grid">
+<div class="box"><h2>What each driver is doing now</h2><div class="ex" id="ex"></div></div>
+<div class="box"><h2>What your last changes did</h2><p class="sub" style="font-size:.82rem;margin-bottom:8px">Shows each readout a few seconds after you stop moving a slider.</p><ol id="log"></ol></div>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id),cl=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),R=Math.random,pc=v=>Math.round(v*100)+'%';
+const cv=$('c'),ctx=cv.getContext('2d'),W=960,H=560;
+(function(){const d=Math.min(window.devicePixelRatio||1,2);cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0)})();
+let col={};function readCols(){const s=getComputedStyle(document.documentElement);['lum','cell','cellS','prot','sacc','pur','lps','tox','scfa','acc','ink','mute','line','panel'].forEach(k=>col[k]=s.getPropertyValue('--'+k).trim())}readCols();
+const inp={prot:.35,fiber:.85,transit:.8,meds:0,ckd:0};let fb=true,speed=1,paused=false;
+const KEYS=['prot','fiber','transit','meds','ckd'];
+KEYS.forEach(k=>{const e=$(k),u=()=>{inp[k]=e.value/100;$('v_'+k).textContent=k==='ckd'?'eGFR ≈ '+Math.round(100-95*inp.ckd):e.value+'%'};e.oninput=u;u()});
+$('fb').onchange=e=>fb=e.target.checked;
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const v=b.dataset.p.split(',').map(Number);KEYS.forEach((k,i)=>{$(k).value=v[i]*100;$(k).dispatchEvent(new Event('input'))})});
+$('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause'};
+[['s1',1],['s5',5]].forEach(a=>$(a[0]).onclick=()=>{speed=a[1];$('s1').classList.toggle('on',speed===1);$('s5').classList.toggle('on',speed===5)});
+const S={Pro:.2,K:0,Tp:0,U:0,E:0,SC:.6,H:.6,Pm:.2,Tr:0,OS:0,In:0,Fib:0,Ath:0,Cog:0,CVD:0,Vir:0};
+function step(){const{prot,fiber,transit,meds,ckd}=inp,sel=fb?S.U:0,tg={};
+const bd=.35*prot+.3*(1-fiber)+.15*(1-transit)+.3*meds+.35*sel+.1*S.K;
+tg.Pro=cl(.08+.7*bd,.05,.95);
+const pa=cl(S.Pro*(.4+.6*prot));tg.Tp=cl(pa*(.3+.7*prot));
+tg.U=cl(S.Tp*(.3+.7*S.K)*1.6);tg.E=cl(S.Pro*.95);
+tg.SC=cl((1-S.Pro)*(.4+.6*fiber)*(.6+.4*transit)*1.25);tg.H=cl(S.SC*.95);
+tg.Pm=cl(.05+.25*(1-S.H)+.25*S.E+.3*S.U);tg.Tr=cl(S.Pm*(.5*S.E+.5*S.U)*2.2);
+tg.OS=cl(.55*S.Tr+.5*S.U);tg.In=cl(.9*S.Tr+.15*(1-S.H));
+tg.Fib=cl(.6*(S.OS+S.In)/2+.4*S.K);tg.Ath=cl(.5*S.In+.3*S.OS+.2*S.U);tg.Cog=cl(.4*S.In+.3*S.U+.18*(1-S.H));
+tg.CVD=cl(.4*S.In+.3*S.OS+.3*S.U);tg.Vir=cl(.5*S.In+.3*(1-S.H)+.2*S.Pm);
+for(const k in tg)S[k]+=(tg[k]-S[k])*(k==='Pro'?.04:.06);
+S.K+=(cl(ckd+(fb?.5*cl((S.OS+S.In)/2-.2):0))-S.K)*.006}
+for(let i=0;i<700;i++)step();
+const bac=[...Array(44)].map(()=>({r:R(),ox:R()*2-1,oy:R(),x:480,y:170,ph:R()*6,rod:R()<.5}));
+let parts=[],t=0,seal=0;
+const PX=480,PY=170,L=260,BY=300;
+function ends(){const a=(S.Pro-.5)*.64;return{a,lx:PX-L*Math.cos(a),ly:PY+L*Math.sin(a),rx:PX+L*Math.cos(a),ry:PY-L*Math.sin(a)}}
+function pick(left,E){const a=bac.filter(b=>left?b.r<S.Pro:b.r>=S.Pro);return a.length?a[Math.floor(R()*a.length)]:null}
+function sim(){t++;const E=ends();
+bac.forEach(b=>{const left=b.r<S.Pro,ex=left?E.lx:E.rx,ey=left?E.ly:E.ry,tx=ex+b.ox*52,ty=ey-14-b.oy*34;b.x+=(tx-b.x)*.05+Math.sin(t*.05+b.ph)*.4;b.y+=(ty-b.y)*.05+Math.cos(t*.06+b.ph)*.4});
+if(R()<S.E*.3){const b=pick(true);if(b)parts.push({t:'e',x:b.x,y:b.y,vy:.7+R()*.4,pass:R()<S.Pm*1.3,a:1})}
+if(R()<(S.Tp*.35+.01)){const b=pick(true);if(b)parts.push({t:'u',x:b.x,y:b.y,vy:.7+R()*.4,pass:R()<S.Pm*1.3,a:1})}
+if(R()<S.SC*.3){const b=pick(false);if(b)parts.push({t:'s',x:b.x,y:b.y,vy:.8+R()*.4,a:1})}
+parts=parts.filter(p=>{p.y+=p.vy;
+if(p.t==='s'){if(p.y>BY-4){seal=Math.min(1,seal+.04);return false}return true}
+if(p.y<BY-2){return true}
+if(!p.pass){p.a-=.05;p.vy*=.8;return p.a>0}
+if(!p.jx)p.jx=160+40*Math.round((p.x-160)/40);p.x+=(p.jx-p.x)*.2;if(p.y>412){p.a-=.06}return p.a>0});
+seal*=.99}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function dot(x,y,r,c,a=1){ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,6.3);ctx.fill();ctx.globalAlpha=1}
+function tri(x,y,c,a=1){ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x+5,y+4);ctx.lineTo(x-5,y+4);ctx.fill();ctx.globalAlpha=1}
+function txt(s,x,y,al='center',w=600,sz=12,c){ctx.fillStyle=c||col.ink;ctx.font=w+' '+sz+'px Figtree,system-ui,sans-serif';ctx.textAlign=al;ctx.fillText(s,x,y)}
+const sev=v=>`hsl(${Math.round(140-140*cl(v))},65%,50%)`;
+function draw(){if(t%40===0)readCols();const E=ends();
+ctx.clearRect(0,0,W,H);
+// diet
+rr(400,12,160,34,17);ctx.fillStyle=col.panel;ctx.fill();ctx.strokeStyle=col.acc;ctx.lineWidth=2;ctx.stroke();txt('Diet',480,35,'center',800,17);
+txt('Protein precursors '+pc(inp.prot),20,36,'left',600,13);
+txt('Fiber '+pc(inp.fiber)+' · transit '+pc(inp.transit)+' · drugs '+pc(inp.meds),940,36,'right',600,13);
+txt('Eff. kidney function lost '+pc(S.K),20,56,'left',600,12,col.mute);
+// plank
+ctx.strokeStyle=col.mute;ctx.lineWidth=8;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(E.lx,E.ly);ctx.lineTo(E.rx,E.ry);ctx.stroke();ctx.lineCap='butt';
+ctx.fillStyle=col.mute;ctx.beginPath();ctx.moveTo(PX,PY+4);ctx.lineTo(PX+46,PY+78);ctx.lineTo(PX-46,PY+78);ctx.fill();
+// bacteria
+bac.forEach(b=>{const left=b.r<S.Pro;ctx.save();ctx.translate(b.x,b.y);
+if(left){if(b.rod){ctx.rotate(b.ph);ctx.fillStyle=col.prot;rr(-9,-3.5,18,7,3.5);ctx.fill();ctx.strokeStyle=col.prot;ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<10;i++){const x=-10-i*1.5,y=Math.sin(i*.9+t*.2+b.ph)*2.5;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}else{ctx.fillStyle=col.prot;ctx.beginPath();ctx.arc(0,0,5,0,6.3);ctx.fill()}}
+else{ctx.rotate(b.ph*.5);ctx.fillStyle=b.rod?col.sacc:col.pur;rr(-10,-3.5,20,7,3.5);ctx.fill()}ctx.restore()});
+txt('Proteolytic: Enterobacteriaceae, enterococci,',10,266,'left',600,11.5,col.prot);txt('C. perfringens, Pseudomonas',10,281,'left',600,11.5,col.prot);
+txt('Saccharolytic: Bifidobacterium, Lactobacillaceae,',950,266,'right',600,11.5,col.sacc);txt('Bacteroidaceae, Prevotellaceae',950,281,'right',600,11.5,col.sacc);
+// barrier
+const gap=1+S.Pm*14;
+for(let i=0;i<16;i++){const x=160+40*i+gap/2;rr(x,BY,40-gap,36,8);ctx.fillStyle=col.cell;ctx.fill();ctx.strokeStyle=seal>.05?col.scfa:col.cellS;ctx.lineWidth=1+seal*2;ctx.stroke();ctx.beginPath();ctx.ellipse(x+(40-gap)/2,BY+20,8,6,0,0,6.3);ctx.fillStyle=col.cellS;ctx.globalAlpha=.5;ctx.fill();ctx.globalAlpha=1}
+txt('Intestinal barrier permeability '+pc(S.Pm),480,BY+56,'center',800,15,sev(S.Pm));
+txt('Translocation of LPS, uremic toxins and cytokines '+pc(S.Tr),480,BY+73,'center',400,12,col.mute);
+parts.forEach(p=>{if(p.t==='e')dot(p.x,p.y,3.5,col.lps,p.a);else if(p.t==='u')tri(p.x,p.y,col.tox,p.a);else dot(p.x,p.y,3,col.scfa,.9)});
+// boxes
+[['Oxidative stress',S.OS,330],['Inflammation',S.In,490]].forEach(b=>{rr(b[2],398,140,36,8);ctx.fillStyle=col.panel;ctx.fill();ctx.save();rr(b[2],398,140,36,8);ctx.clip();ctx.fillStyle=sev(b[1]);ctx.globalAlpha=.3;ctx.fillRect(b[2],398,140*b[1],36);ctx.restore();ctx.strokeStyle=sev(b[1]);ctx.lineWidth=2;rr(b[2],398,140,36,8);ctx.stroke();txt(b[0]+' '+pc(b[1]),b[2]+70,421,'center',700,13)});
+// organs
+ctx.strokeStyle=col.acc;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(110,448);ctx.lineTo(850,448);ctx.moveTo(400,434);ctx.lineTo(400,448);ctx.moveTo(560,434);ctx.lineTo(560,448);ctx.stroke();
+const O=[['Renal fibrosis',S.Fib,'🫘'],['Atherosclerosis',S.Ath,'🩸'],['Cognitive decline',S.Cog,'🧠'],['Cardiovascular disease',S.CVD,'🫀'],['Viral infection risk',S.Vir,'🫁']];
+O.forEach((o,i)=>{const x=130+i*175;ctx.beginPath();ctx.moveTo(x,448);ctx.lineTo(x,460);ctx.stroke();txt(o[0]+' '+pc(o[1]),x,476,'center',700,12.5);
+dot(x,515,30,sev(o[1]),.22);ctx.strokeStyle=sev(o[1]);ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,515,30,-1.57,-1.57+6.28*o[1]);ctx.stroke();ctx.font='28px sans-serif';ctx.textAlign='center';ctx.fillStyle=col.ink;ctx.fillText(o[3]||o[2],x,525)});
+// loop arrows
+txt('Reduced clearance ↑',20,300,'left',700,11.5,col.acc);txt('Selective pressure ↑',20,316,'left',700,11.5,col.acc);
+ctx.globalAlpha=fb?1:.3;txt('Feedback '+(fb?'on':'off'),20,334,'left',600,11.5,col.mute);ctx.globalAlpha=1}
+const G=[['Microbiota and gut'],['Proteolytic share','Pro','prot'],['SCFA production','SC','scfa'],['GABA, GLP-1, GLP-2, PYY','H','sacc'],['Endotoxins (LPS)','E','lps'],['Uremic toxins (IS, p-CS, IAA, TMAO)','U','tox'],['Barrier and blood'],['Barrier permeability','Pm','acc'],['Translocation','Tr','lps'],['Oxidative stress','OS','acc'],['Inflammation','In','acc'],['Kidney function lost (live)','K','prot'],['Organ outcomes'],['Renal fibrosis','Fib','acc'],['Atherosclerosis','Ath','acc'],['Cognitive decline, neuroinflammation','Cog','acc'],['Cardiovascular disease','CVD','acc'],['Viral infection risk','Vir','acc']];
+$('gauges').innerHTML=G.map((g,i)=>g.length===1?`<div class="gh">${g[0]}</div>`:`<div class="g"><div class="t"><span>${g[0]}</span><span id="gv${i}"></span></div><div class="bar"><i id="gb${i}" style="background:var(--${g[2]})"></i></div></div>`).join('');
+function ui(){G.forEach((g,i)=>{if(g.length===1)return;const v=Math.round(S[g[1]]*100);$('gv'+i).textContent=v+'%';$('gb'+i).style.width=v+'%'});
+const dr=[['protein precursors',.35*inp.prot],['low fiber',.3*(1-inp.fiber)],['slow transit',.15*(1-inp.transit)],['medication',.3*inp.meds],['toxin-driven selective pressure',fb?.35*S.U:0]].sort((a,b)=>b[1]-a[1])[0][0];
+let s=S.Pro<.3&&S.In<.2?'Balanced: saccharolytic bacteria make SCFA and gut hormones, the barrier holds and little reaches the blood.':`Balance has tipped to ${pc(S.Pro)} proteolytic, driven mainly by ${dr}. Permeability ${pc(S.Pm)} lets toxins and LPS through (translocation ${pc(S.Tr)}), raising inflammation to ${pc(S.In)}.`;
+if(S.K-inp.ckd>.04)s+=` Kidney function is also falling by ${Math.round((S.K-inp.ckd)*95)} eGFR points from fibrosis, which cuts clearance and feeds the loop.`;
+$('read').textContent=s;
+EX.forEach(e=>{const n=$('ee_'+e[0]);if(n)n.textContent=e[3]()})}
+const EX=[['prot','Protein and precursors',i=>i.prot<.3?'Few aromatic amino acid and choline precursors reach the colon, so little substrate for toxin production.':'Undigested phenylalanine, tyrosine and tryptophan are fermented by proteolytic bacteria into phenols and indoles (p-cresyl sulfate, indoxyl sulfate, IAA), and choline and lecithin become TMAO.',()=>'Uremic toxins '+pc(S.U)],
+['fiber','Fiber and carbohydrates',i=>i.fiber>.6?'Saccharolytic Bifidobacterium, Lactobacillaceae, Bacteroidaceae and Prevotellaceae ferment fiber into SCFA, GABA and gut hormones that support the barrier.':'Less fiber starves saccharolytic groups. SCFA and hormones (GABA, GLP-1, GLP-2, PYY) fall and the seesaw tips toward proteolytic species.',()=>'SCFA '+pc(S.SC)],
+['transit','Colonic transit',i=>i.transit>.6?'Faster transit clears bacteria and leaves less time for protein fermentation.':'Slow transit gives Enterobacteriaceae and other proteolytic bacteria more time to ferment protein and build up.',()=>'Proteolytic share '+pc(S.Pro)],
+['meds','Medication',i=>i.meds<.1?'No drug pressure on the flora.':'Antibiotics, phosphate binders and iron-containing compounds disturb the flora: saccharolytic groups drop while Enterobacteriaceae, enterococci, C. perfringens and Pseudomonas expand.',()=>'Endotoxins '+pc(S.E)],
+['ckd','Baseline kidney function lost',i=>i.ckd<.1?'Absorbed toxins are cleared in urine, so blood levels stay low.':'Reduced clearance means toxins absorbed from the gut are not excreted, so blood levels rise and the toxins add selective pressure for proteolytic bacteria. Fibrosis can lower function further.',()=>'Effective loss '+pc(S.K)]];
+function explain(){$('ex').innerHTML=EX.map(e=>`<div class="d"><b>${e[1]} (${e[0]==='ckd'?'eGFR ≈ '+Math.round(100-95*inp.ckd):pc(inp[e[0]])})</b>${e[2](inp)}<br><em id="ee_${e[0]}">${e[3]()}</em></div>`).join('')}
+const LB={prot:'Protein',fiber:'Fiber',transit:'Transit',meds:'Medication',ckd:'Baseline kidney loss'};
+let prevI={...inp},before=null,logs=[],lt;
+KEYS.forEach(k=>$(k).addEventListener('input',()=>{explain();if(!before)before={...S};clearTimeout(lt);lt=setTimeout(()=>{const ch=KEYS.filter(k=>Math.abs(inp[k]-prevI[k])>.01);const a={...S};
+const ef=[['proteolytic','Pro'],['SCFA','SC'],['permeability','Pm'],['toxins','U'],['inflammation','In'],['kidney loss','K'],['CVD','CVD']].filter(x=>Math.abs(a[x[1]]-before[x[1]])>=.02).map(x=>`${x[0]} ${pc(before[x[1]])} → ${pc(a[x[1]])}`);
+if(ch.length){logs.unshift({h:ch.map(k=>`${LB[k]} ${pc(prevI[k])} → ${pc(inp[k])}`).join(', '),e:ef.length?ef.join(', '):'No major change yet.'});logs=logs.slice(0,6);$('log').innerHTML=logs.map(l=>`<li><b>${l.h}</b><small>${l.e}</small></li>`).join('')}
+prevI={...inp};before=null},3500)}));
+explain();
+function loop(){if(!paused){for(let i=0;i<speed;i++)step();sim()}draw();if(t%6===0)ui();requestAnimationFrame(loop)}
+ui();loop();
+</script>
+</body>
+</html>
